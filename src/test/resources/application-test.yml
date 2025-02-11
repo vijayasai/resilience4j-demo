@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: resilience4j-demo
+
+server:
+  port: 8082
+
+feign:
+  client:
+    config:
+      DEMO-APIService:
+        readTimeout: 36000
+        connectTimeout: 36000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      demo-post-api:
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 5s
+        permitted-number-of-calls-in-half-open-state: 3
+        sliding-window-size: 10
+        sliding-window-type: count_based
+

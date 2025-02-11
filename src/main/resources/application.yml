@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: resilience4j-demo
+
+server:
+  port: 8082
+
+feign:
+  client:
+    config:
+      DEMO-APIService:
+        readTimeout: 36000
+        connectTimeout: 36000
+
