@@ -5,7 +5,15 @@ spring:
 server:
   port: 8082
 
+
 feign:
+  circuitbreaker:
+    enabled: true
+  http:
+    client:
+      enabled: true
+  hystrix:
+    enabled: false
   client:
     config:
       DEMO-APIService:
@@ -16,11 +24,45 @@ resilience4j:
   circuitbreaker:
     instances:
       demo-post-api:
-        failure-rate-threshold: 50
-        minimum-number-of-calls: 5
-        automatic-transition-from-open-to-half-open-enabled: true
-        wait-duration-in-open-state: 5s
-        permitted-number-of-calls-in-half-open-state: 3
-        sliding-window-size: 10
-        sliding-window-type: count_based
+        base-config: values
+    configs:
+      values:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+        slidingWindowType: count_based
+        recordExceptions:
+          - java.util.concurrent.TimeoutException
+          - java.io.IOException
+        ignoreExceptions:
 
+
+  timelimiter:
+    metrics:
+      enabled: true
+    configs:
+      values:
+        cancel-running-future: true
+        timeout-duration: 3s
+    instances:
+      demo-post-api:
+        cancel-running-future: true
+        timeout-duration: 3s
+
+  thread-pool-bulkhead:
+    instances:
+      demo-post-api:
+        max-thread-pool-size: 4
+        core-thread-pool-size: 2
+        queue-capacity: 2
+
+  bulkhead:
+    instances:
+      demo-post-api:
+        max-concurrent-calls: 20
+        max-wait-duration: 2ms

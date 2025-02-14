@@ -4,7 +4,9 @@ import com.resilience4j.resilience4j_demo.feign.DemoFeignClient;
 import com.resilience4j.resilience4j_demo.model.TargetServiceRequest;
 import com.resilience4j.resilience4j_demo.model.TargetServiceResponse;
 import com.resilience4j.resilience4j_demo.model.TargetUrlInfo;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -25,12 +27,17 @@ public class DemoService {
      * @param targetServiceRequest TargetServiceRequest
      * @return CompletableFuture<ResponseEntity < TargetServiceResponse>>
      */
+    @TimeLimiter(name = "demo-post-api", fallbackMethod = "demoFallBack")
+    @Bulkhead(name ="demo-post-api", fallbackMethod = "demoFallBack", type = Bulkhead.Type.THREADPOOL)
     @CircuitBreaker(name = "demo-post-api", fallbackMethod = "demoFallBack")
     public CompletableFuture<ResponseEntity<TargetServiceResponse>> doDemoPostApi(TargetServiceRequest targetServiceRequest) {
         TargetUrlInfo targetUrlInfo = new
                 TargetUrlInfo("POST", "http://localhost:8082", "/api/v1/postDemo");
-        return CompletableFuture.supplyAsync(() -> demoFeignClient.
+
+        return CompletableFuture.completedFuture(demoFeignClient.
                 postDemoService(targetUrlInfo, "12345", targetServiceRequest));
+        /*return CompletableFuture.supplyAsync(() -> demoFeignClient.
+                postDemoService(targetUrlInfo, "12345", targetServiceRequest));*/
     }
 
     /**
