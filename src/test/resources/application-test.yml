@@ -5,10 +5,17 @@ spring:
 server:
   port: 8082
 
+demo:
+  server:
+    url: http://localhost:8082
+  context:
+    resource:
+      path: /api/v1/postDemo
+      action: PUT
 
 feign:
   circuitbreaker:
-    enabled: true
+    enabled: false # when it turns true, then this always throw Hystrix timeout exception as we are using openFeign
   http:
     client:
       enabled: true
@@ -60,6 +67,8 @@ resilience4j:
         max-thread-pool-size: 4
         core-thread-pool-size: 2
         queue-capacity: 2
+        context-propagators:
+          - io.github.resilience4j.core.ContextPropagator.EmptyContextPropagator
 
   bulkhead:
     instances:

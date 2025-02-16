@@ -1,0 +1,77 @@
+spring:
+  application:
+    name: resilience4j-demo
+
+server:
+  port: 8082
+
+demo:
+  server:
+    url: http://localhost:8082
+  context:
+    resource:
+      path: /api/v1/postDemo
+      action: PUT
+
+feign:
+  circuitbreaker:
+    enabled: false # when it turns true, then this always throw Hystrix timeout exception as we are using openFeign
+  http:
+    client:
+      enabled: true
+  hystrix:
+    enabled: false
+  client:
+    config:
+      DEMO-APIService:
+        readTimeout: 36000
+        connectTimeout: 36000
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      demo-post-api:
+        base-config: values
+    configs:
+      values:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 5s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+        slidingWindowType: count_based
+        recordExceptions:
+          - java.util.concurrent.TimeoutException
+          - java.io.IOException
+        ignoreExceptions:
+
+
+  timelimiter:
+    metrics:
+      enabled: true
+    configs:
+      values:
+        cancel-running-future: true
+        timeout-duration: 3s
+    instances:
+      demo-post-api:
+        cancel-running-future: true
+        timeout-duration: 3s
+
+  thread-pool-bulkhead:
+    instances:
+      demo-post-api:
+        max-thread-pool-size: 4
+        core-thread-pool-size: 2
+        queue-capacity: 2
+        context-propagators:
+          - io.github.resilience4j.core.ContextPropagator.EmptyContextPropagator
+
+  bulkhead:
+    instances:
+      demo-post-api:
+        max-concurrent-calls: 20
+        max-wait-duration: 2ms

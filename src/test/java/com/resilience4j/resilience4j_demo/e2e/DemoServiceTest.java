@@ -4,24 +4,23 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.resilience4j.resilience4j_demo.model.TargetServiceRequest;
 import com.resilience4j.resilience4j_demo.model.TargetServiceResponse;
 import com.resilience4j.resilience4j_demo.service.DemoService;
-import io.github.resilience4j.timelimiter.TimeLimiter;
-import io.github.resilience4j.timelimiter.TimeLimiterConfig;
-import io.github.resilience4j.timelimiter.TimeLimiterRegistry;
+import com.resilience4j.resilience4j_demo.util.E2EConstants;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
-import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import static com.github.tomakehurst.wiremock.client.WireMock.configureFor;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static com.resilience4j.resilience4j_demo.util.E2EUtil.*;
 
@@ -33,12 +32,24 @@ public class DemoServiceTest {
     @Autowired
     DemoService demoService;
 
+    @Value("${demo.server.url}")
+    private String serverUrl;
+
+    @Value("${demo.context.resource.path}")
+    private String demoContextPath;
+
+    @Value("${demo.context.resource.action}")
+    private String demoAction;
+
     WireMockServer wireMockServer;
+
+    @Value("${server.port}")
+    private int port;
 
     @BeforeEach
     public void setWireMockServer() {
-        wireMockServer = new WireMockServer(wireMockConfig().port(8082));
-        configureFor("localhost", 8082);
+        wireMockServer = new WireMockServer(wireMockConfig().port(port));
+        configureFor(E2EConstants.LOCAL_HOST, port);
         wireMockServer.start();
     }
 
@@ -48,75 +59,45 @@ public class DemoServiceTest {
     }
 
     @Test
-    void postDemoTest200() {
+    void whenCompletableFutureCompleted_thenExecutedOnSuccess() throws ExecutionException, InterruptedException {
         String respBody = "{\"data\":\"Success\"}";
-       /* wireMockServer.stubFor(post(urlEqualTo("/api/v1/postDemo"))
-                .willReturn(aResponse()
-                        .withHeader("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                      //  .withFixedDelay(7000)
-                        .withStatus(HttpStatus.OK.value()).withBody(respBody))).toString();*/
-
-        buildStub(wireMockServer, "/api/v1/postDemo", HttpStatus.OK.value(),
-                null, respBody );
-        try {
-            CompletableFuture<ResponseEntity<TargetServiceResponse>> result = demoService.doDemoPostApi(getTargetServiceRequest());
-
-            result.whenComplete((targetServiceResponseResponseEntity, throwable) -> {
-                if (throwable != null) {
-                    throw new RuntimeException(throwable);
-                }
-                if (targetServiceResponseResponseEntity != null) {
-                    System.out.println("*********SUCCESS*******"+targetServiceResponseResponseEntity.getBody().getData());
-                }
-            });
-            int m = result.get().getStatusCode().value();
-            System.out.println("m=" + m);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        buildStub(wireMockServer, demoContextPath, HttpStatus.OK.value(),
+                null, respBody);
+        TargetServiceRequest targetServiceRequest = getTargetServiceRequest(serverUrl,
+                demoAction, "12345", E2EConstants.API_NAME);
+        CompletableFuture<ResponseEntity<TargetServiceResponse>> result = demoService.doDemoPostApi(targetServiceRequest);
+        Assertions.assertEquals(HttpStatus.OK, result.get().getStatusCode());
+        Assertions.assertNotNull(result.get().getBody());
+        Assertions.assertEquals("Success", result.get().getBody().getData());
     }
 
     @Test
-    void postDemoTimeOutTest() {
+    void whenCompletableFutureCompleted_thenExceptionallyTimeOutExecutedOnFailure() throws RuntimeException {
         String respBody = "{\"data\":\"Success\"}";
+        setTimeLimiter(E2EConstants.FEIGN_NAME, 1);
+        buildStubWithDelayResponse(wireMockServer, demoContextPath, HttpStatus.OK.value(), null, respBody);
+        TargetServiceRequest targetServiceRequest = getTargetServiceRequest(serverUrl,
+                demoAction, "12345", E2EConstants.API_NAME);
+        CompletableFuture<ResponseEntity<TargetServiceResponse>> result = demoService.doDemoPostApi(targetServiceRequest);
+        result.whenComplete((targetServiceResponseResponseEntity, throwable) -> {
+            if (throwable != null) {
+                System.err.println("Timeout throwable ==" + throwable.getMessage());
+            }
+        });
 
-
-        TimeLimiterConfig timeLimiterConfig = TimeLimiterConfig
-                .custom()
-                .timeoutDuration(Duration.ofMillis(1))
-                .build();
-        TimeLimiterRegistry timeLimiterRegistry = TimeLimiterRegistry.of(timeLimiterConfig);
-        TimeLimiter tl = timeLimiterRegistry.timeLimiter("demo-post-api");
-
-        buildStubWithDelayResponse(wireMockServer, "/api/v1/postDemo", HttpStatus.OK.value(),null, respBody );
-
-
-        try {
-            CompletableFuture<ResponseEntity<TargetServiceResponse>> result = demoService.doDemoPostApi(getTargetServiceRequest());
-
-            /*result.whenComplete((targetServiceResponseResponseEntity, throwable) -> {
-                if (throwable != null) {
-                  //  throw new RuntimeException(throwable);
-                    System.err.println("*****Timeout exception ::"+throwable.getMessage());
-                }
-                if (targetServiceResponseResponseEntity != null) {
-                    System.out.println("*********SUCCESS*******"+targetServiceResponseResponseEntity.getBody().getData());
-                }
-            });*/
-            int m = result.get().getStatusCode().value();
-            System.out.println("****************m=" + m);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-      //  setTimeLimiter("demo-post-api", 36000);
     }
 
-    private TargetServiceRequest getTargetServiceRequest() {
-        TargetServiceRequest targetServiceRequest = new TargetServiceRequest();
-        targetServiceRequest.setHttpMethod("PUT");
-        targetServiceRequest.setTargetUri("http://localhost:8082");
-        targetServiceRequest.setTrackId("12345");
-        targetServiceRequest.setMethodName("TestVijay");
-        return targetServiceRequest;
+    @Test
+    void whenCompletableFutureCompleted_thenExceptionallyExecutedOnFailure() {
+        String respBody = "{\"data\":\"Failure with generic exception\"}";
+        buildStub(wireMockServer, demoContextPath, 500, null, respBody);
+        TargetServiceRequest targetServiceRequest = getTargetServiceRequest(serverUrl,
+                demoAction, "12345", E2EConstants.API_NAME);
+        CompletableFuture<ResponseEntity<TargetServiceResponse>> result = demoService.doDemoPostApi(targetServiceRequest);
+        result.whenComplete((targetServiceResponseResponseEntity, throwable) -> {
+            if (throwable != null) {
+                System.err.println("Generic  throwable ==" + throwable.getMessage());
+            }
+        });
     }
 }

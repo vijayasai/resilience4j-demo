@@ -9,13 +9,15 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 
-@FeignClient(name = "DEMO-APIService", url = "http://localhost:8082")
+import static com.resilience4j.resilience4j_demo.util.DemoConstants.*;
+
+@FeignClient(name = DEMO_API_SERVICE, url = "${demo.server.url}")
 public interface DemoFeignClient {
 
-    @PostMapping(value = "/api/v1/postDemo")
+    @PostMapping(value = "${demo.context.resource.path}")
     ResponseEntity<TargetServiceResponse> postDemoService(
-            @RequestHeader("Referer") TargetUrlInfo targetUrlInfo,
-            @RequestHeader("trackId") String trackId,
+            @RequestHeader(REFERER) TargetUrlInfo targetUrlInfo,
+            @RequestHeader(TRACK_ID) String trackId,
             @RequestBody TargetServiceRequest targetServiceRequest);
 
 }
