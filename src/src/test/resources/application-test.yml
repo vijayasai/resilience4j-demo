@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: resilience4j-demo
+
+server:
+  port: 8082
+
+demo:
+  server:
+    url: http://localhost:8082
+  context:
+    resource:
+      path: /api/v1/postDemo
+      action: PUT
+
+logging:
+  feign:
+    log:
+      level: FULL
+
+feign:
+  client:
+    config:
+      DEMO-APIService:
+        readTimeout: 36000
+        connectTimeout: 36000
+
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      demo-post-api:
+        sliding-window-size: 10
+        minimum-number-of-calls: 3
+        sliding-window-type: COUNT_BASED
+        automatic-transition-from-open-to-half-open-enabled: true
+        failure-rate-threshold: 50
+
+  timelimiter:
+    instances:
+      demo-post-api:
+        timeout-duration: 5s
+
+  thread-pool-bulkhead:
+    instances:
+      demo-post-api:
+        max-thread-pool-size: 5
+        core-thread-pool-size: 2
+        queue-capacity: 5
+
+  bulkhead:
+    instances:
+      demo-post-api:
+        max-wait-duration: 3s
