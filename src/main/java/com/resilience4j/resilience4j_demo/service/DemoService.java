@@ -40,15 +40,15 @@ public class DemoService {
      * @param targetServiceRequest TargetServiceRequest
      * @return CompletableFuture<ResponseEntity < TargetServiceResponse>>
      */
-    @TimeLimiter(name = DemoConstants.FEIGN_NAME)
-    @Bulkhead(name =DemoConstants.FEIGN_NAME, type = Bulkhead.Type.THREADPOOL)
-    @CircuitBreaker(name = DemoConstants.FEIGN_NAME, fallbackMethod = "demoFallBack")
+    @Bulkhead(name = "demo-post-api", type = Bulkhead.Type.THREADPOOL)
+    @TimeLimiter(name = "demo-post-api")
+    @CircuitBreaker(name = "demo-post-api", fallbackMethod = "demoFallBack")
     public CompletableFuture<ResponseEntity<TargetServiceResponse>> doDemoPostApi(TargetServiceRequest
-                                                                                              targetServiceRequest) throws RuntimeException {
+                                                                                          targetServiceRequest)
+            throws RuntimeException {
         TargetUrlInfo targetUrlInfo = new
                 TargetUrlInfo(POST_HTTP_METHOD, serverUrl, demoContextPath);
-
-        return CompletableFuture.supplyAsync(() -> demoFeignClient.
+        return CompletableFuture.completedFuture(demoFeignClient.
                 postDemoService(targetUrlInfo, "12345", targetServiceRequest));
     }
 
@@ -61,8 +61,8 @@ public class DemoService {
     public CompletableFuture<ResponseEntity<TargetServiceResponse>> demoFallBack(
             TargetServiceRequest targetServiceRequest,
             Throwable exception) throws RuntimeException {
-        System.err.println("Error occurred while making target service " + targetServiceRequest.getMethodName()
-                + " for the trackId: " + targetServiceRequest.getMethodName());
+        System.err.println("Error occurred while making target service " + targetServiceRequest
+                + " for the trackId: " + targetServiceRequest);
         throw new RuntimeException(exception);
     }
 }

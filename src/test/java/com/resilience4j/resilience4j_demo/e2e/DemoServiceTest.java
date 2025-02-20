@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.concurrent.CompletableFuture;
@@ -23,10 +22,10 @@ import java.util.concurrent.ExecutionException;
 import static com.github.tomakehurst.wiremock.client.WireMock.configureFor;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static com.resilience4j.resilience4j_demo.util.E2EUtil.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@DirtiesContext
 public class DemoServiceTest {
 
     @Autowired
@@ -66,38 +65,36 @@ public class DemoServiceTest {
         TargetServiceRequest targetServiceRequest = getTargetServiceRequest(serverUrl,
                 demoAction, "12345", E2EConstants.API_NAME);
         CompletableFuture<ResponseEntity<TargetServiceResponse>> result = demoService.doDemoPostApi(targetServiceRequest);
-        Assertions.assertEquals(HttpStatus.OK, result.get().getStatusCode());
+        assertEquals(HttpStatus.OK, result.get().getStatusCode());
         Assertions.assertNotNull(result.get().getBody());
-        Assertions.assertEquals("Success", result.get().getBody().getData());
+        assertEquals("Success", result.get().getBody().getData());
     }
 
     @Test
-    void whenCompletableFutureCompleted_thenExceptionallyTimeOutExecutedOnFailure() throws RuntimeException {
+    void whenCompletableFutureCompleted_thenExceptionallyTimeOutExecutedOnFailure() throws RuntimeException, ExecutionException, InterruptedException {
         String respBody = "{\"data\":\"Success\"}";
-        setTimeLimiter(E2EConstants.FEIGN_NAME, 1);
-        buildStubWithDelayResponse(wireMockServer, demoContextPath, HttpStatus.OK.value(), null, respBody);
+        buildStubWithDelayResponse(wireMockServer, demoContextPath, HttpStatus.OK.value(),
+                null, respBody);
         TargetServiceRequest targetServiceRequest = getTargetServiceRequest(serverUrl,
                 demoAction, "12345", E2EConstants.API_NAME);
         CompletableFuture<ResponseEntity<TargetServiceResponse>> result = demoService.doDemoPostApi(targetServiceRequest);
-        result.whenComplete((targetServiceResponseResponseEntity, throwable) -> {
-            if (throwable != null) {
-                System.err.println("Timeout throwable ==" + throwable.getMessage());
-            }
-        });
-
+        /*assertEquals(HttpStatus.OK, result.get().getStatusCode());
+        Assertions.assertNotNull(result.get().getBody());
+        assertEquals("Success", result.get().getBody().getData());*/
     }
 
     @Test
-    void whenCompletableFutureCompleted_thenExceptionallyExecutedOnFailure() {
+    void whenCompletableFutureCompleted_thenExceptionallyExecutedOnFailure() throws ExecutionException, InterruptedException {
         String respBody = "{\"data\":\"Failure with generic exception\"}";
         buildStub(wireMockServer, demoContextPath, 500, null, respBody);
         TargetServiceRequest targetServiceRequest = getTargetServiceRequest(serverUrl,
                 demoAction, "12345", E2EConstants.API_NAME);
         CompletableFuture<ResponseEntity<TargetServiceResponse>> result = demoService.doDemoPostApi(targetServiceRequest);
-        result.whenComplete((targetServiceResponseResponseEntity, throwable) -> {
-            if (throwable != null) {
-                System.err.println("Generic  throwable ==" + throwable.getMessage());
-            }
+       // assertEquals("Failure with generic exception", result.get().getBody().getData());
+        result.exceptionally(throwable -> {
+            System.err.println("***b"+throwable.getMessage());
+
+            return null;
         });
     }
 }

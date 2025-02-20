@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 
 import static com.resilience4j.resilience4j_demo.util.DemoConstants.*;
 
-@FeignClient(name = DEMO_API_SERVICE, url = "${demo.server.url}")
+@FeignClient(name = DEMO_API_SERVICE, url = "${demo.server.url}", configuration = DemoPostApiFeignConfigurations.class)
 public interface DemoFeignClient {
 
     @PostMapping(value = "${demo.context.resource.path}")

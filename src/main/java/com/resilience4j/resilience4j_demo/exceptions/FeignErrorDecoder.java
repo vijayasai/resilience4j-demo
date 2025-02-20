@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Date;
 
 @Component
 public class FeignErrorDecoder implements ErrorDecoder {
@@ -20,7 +21,9 @@ public class FeignErrorDecoder implements ErrorDecoder {
     public Exception decode(String methodKey, Response response) {
         ExceptionMessage message = null;
         try (InputStream body = response.body().asInputStream()){
-            message = new ExceptionMessage((String) response.headers().get("date").toArray()[0],
+            ;
+           // message = new ExceptionMessage((String) response.headers().get("date").toArray()[0],
+            message = new ExceptionMessage( new Date().toString(),
                     response.status(),
                     HttpStatus.resolve(response.status()).getReasonPhrase(),
                     IOUtils.toString(body, StandardCharsets.UTF_8),
