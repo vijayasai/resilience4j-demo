@@ -5,6 +5,7 @@ import com.resilience4j.resilience4j_demo.model.TargetServiceRequest;
 import com.resilience4j.resilience4j_demo.model.TargetServiceResponse;
 import com.resilience4j.resilience4j_demo.service.DemoService;
 import com.resilience4j.resilience4j_demo.util.E2EConstants;
+import feign.FeignException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,11 +19,13 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.configureFor;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static com.resilience4j.resilience4j_demo.util.E2EUtil.*;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -78,6 +81,14 @@ public class DemoServiceTest {
         TargetServiceRequest targetServiceRequest = getTargetServiceRequest(serverUrl,
                 demoAction, "12345", E2EConstants.API_NAME);
         CompletableFuture<ResponseEntity<TargetServiceResponse>> result = demoService.doDemoPostApi(targetServiceRequest);
+        result.exceptionally(throwable -> {
+            System.err.println("*** Time out Exception: " + throwable.getMessage());
+            boolean b = throwable instanceof TimeoutException;
+            System.err.println("*** b: " + b);
+
+            assertTrue(throwable instanceof TimeoutException, "Expected a TimeoutException");
+            return null;
+        }).get(); // Ensure the CompletableFuture is completed
         /*assertEquals(HttpStatus.OK, result.get().getStatusCode());
         Assertions.assertNotNull(result.get().getBody());
         assertEquals("Success", result.get().getBody().getData());*/
@@ -90,11 +101,17 @@ public class DemoServiceTest {
         TargetServiceRequest targetServiceRequest = getTargetServiceRequest(serverUrl,
                 demoAction, "12345", E2EConstants.API_NAME);
         CompletableFuture<ResponseEntity<TargetServiceResponse>> result = demoService.doDemoPostApi(targetServiceRequest);
-       // assertEquals("Failure with generic exception", result.get().getBody().getData());
+
         result.exceptionally(throwable -> {
+            System.err.println("*** Generic Exception: " + throwable.getMessage());
+            assertTrue(throwable instanceof RuntimeException, "Failure with generic exception");
+            return null;
+        }).get();
+        // assertEquals("Failure with generic exception", result.get().getBody().getData());
+        /*result.exceptionally(throwable -> {
             System.err.println("***b"+throwable.getMessage());
 
             return null;
-        });
+        });*/
     }
 }

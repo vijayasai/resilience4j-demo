@@ -14,8 +14,7 @@ import java.util.Date;
 @Component
 public class FeignErrorDecoder implements ErrorDecoder {
 
-    private final ErrorDecoder errorDecoder = new Default();
-
+ private final ErrorDecoder defaultErrorDecoder = new Default();
 
     @Override
     public Exception decode(String methodKey, Response response) {
@@ -36,7 +35,7 @@ public class FeignErrorDecoder implements ErrorDecoder {
             case 404:
                 return new Exception(message.message());
             default:
-                return errorDecoder.decode(methodKey, response);
+                return defaultErrorDecoder.decode(methodKey, response);
         }
     }
 
